@@ -18,7 +18,7 @@ Kami, <a href="https://www.mql5.com/en/users/getbos">**ScalerPip**</a>, telah tr
 
 <img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
 
-- 🎨 Tahun 2026 bersama tim saldo $60an jadi $1400an
+- 🎨 Tahun 2026 bersama tim saldo $60an jadi $1400an dalam 3 bulanan
 - 🐍 21 September 2026 mulai lagi dari saldo $5 
 - 🧪 Membuat TP SL otomatis yang terintegrasi dengan Android
 - 🤝 Membuat buku panduan trading dengan metode Tabranij

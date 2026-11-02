@@ -1,14 +1,16 @@
 //+------------------------------------------------------------------+
 //|                                                     MesinUang.mq5 |
 //|  Full-margin slices + kunci (hedge) recovery                     |
-//|  v2.20 - profil risiko: Konservatif (default) / Moderat /        |
+//|  v2.30 - profil risiko: Konservatif (default) / Moderat /        |
 //|          Agresif / Kustom. Panel interaktif, state tersimpan.    |
 //|          + Standar keranjang (profit/rugi/kunci/flip) bisa diubah|
 //|          + Garis Pra-Stop Out dan Stop Out                       |
 //|          + Flip martingale (tutup sisi rugi, balik arah, lot xN) |
+//|          + Entry sinyal (candle kiri/breakout/reversal), jarak   |
+//|            flip ikut martingale (11% -> 22% -> 44%)             |
 //+------------------------------------------------------------------+
 #property copyright "Mesin Uang"
-#property version   "2.20"
+#property version   "2.30"
 #property description "Mesin Uang: Full-margin slices + kunci (hedge) recovery. Default profil KONSERVATIF + standar keranjang."
 #property strict
 
@@ -20,6 +22,7 @@ enum ENUM_PROFILE    { PROFILE_CONSERVATIVE = 0, PROFILE_MODERATE = 1, PROFILE_A
 enum ENUM_THEME      { THEME_DARK = 0, THEME_LIGHT = 1 };
 enum ENUM_LANG       { LANG_ID = 0, LANG_EN = 1 };
 enum ENUM_EA_STATE   { ST_IDLE, ST_BUILDING, ST_ACTIVE, ST_LOCKED, ST_COOLDOWN, ST_PAUSED };
+enum ENUM_ENTRY_MODE { ENTRY_CANDLE = 0, ENTRY_BREAKOUT = 1, ENTRY_REVERSAL = 2, ENTRY_AUTO = 3, ENTRY_FIXED = 4 };
 
 //--- input
 input group "Profil risiko"
@@ -29,16 +32,24 @@ input group "Standar keranjang (bisa diubah; saldo = saldo sebelum posisi dibuka
 input bool            InpUseBasketStd          = true;   // true = pakai standar di bawah (menimpa profil), false = ikut profil
 input double          InpBasketProfitPct       = 11.0;   // keranjang profit: % dari saldo sebelum posisi
 input double          InpBasketLossPct         = 77.0;   // keranjang rugi: % dari saldo sebelum posisi
-input double          InpKunciFlipPct          = 33.0;   // ambang kunci/flip: rugi floating sisi utama >= N% saldo sebelum posisi
+input double          InpKunciFlipPct          = 11.0;   // jarak flip pertama: rugi floating sisi utama >= N% saldo sebelum posisi
 input bool            InpFlipMartingale        = true;   // flip martingale di ambang N%: sisi rugi ditutup semua, arah dibalik (butuh akun hedging)
 input double          InpFlipLotMultiplier     = 2.0;    // lot sisi flip = lot sisi rugi x pengali (dibatasi margin bebas)
-input int             InpFlipMaxCount          = 2;      // jumlah flip maksimum per keranjang
+input double          InpFlipDistMultiplier    = 2.0;    // jarak flip berikutnya = jarak sebelumnya x pengali (11% -> 22% -> 44%)
+input int             InpFlipMaxCount          = 3;      // jumlah flip maksimum per keranjang
 input double          InpFlipMarginUsePct      = 90.0;   // batas pemakaian margin bebas untuk lot flip (%)
 input double          InpStdKillPct            = 85.0;   // kill switch: equity turun N% dari saldo sebelum posisi, 0 = nonaktif
 input double          InpStdEmergencySLPct     = 77.0;   // SL server darurat sisi utama (% saldo sebelum posisi), 0 = nonaktif
 input bool            InpShowSOLine            = true;   // garis Stop Out
 input bool            InpShowPreSOLine         = true;   // garis peringatan sebelum Stop Out
 input double          InpPreSOBufferLevel      = 50.0;   // jarak garis pra-SO: level SO + N poin margin level
+
+input group "Sinyal entry"
+input ENUM_ENTRY_MODE InpEntryMode             = ENTRY_AUTO;   // CANDLE kiri / BREAKOUT / REVERSAL / AUTO (reversal > breakout > candle) / FIXED (ikut input arah)
+input ENUM_TIMEFRAMES InpSignalTF              = PERIOD_CURRENT;
+input int             InpBreakoutBars          = 10;     // breakout: close menembus high/low N bar sebelum kotak kiri
+input double          InpPinWickRatio          = 0.60;   // reversal: ekor candle >= N x range (0.51 - 0.95)
+input int             InpReentryAfterTargetSec = 0;      // jeda entry lagi setelah keranjang profit tercapai (detik), 0 = langsung
 
 input group "Umum"
 input long            InpMagic                 = 1970;
@@ -147,6 +158,8 @@ double   g_cycleRealized = 0, g_peakLots = 0;
 double   g_startBal = 0;   // saldo sebelum posisi keranjang dibuka (acuan semua persen)
 int      g_flipCount = 0;  // jumlah flip yang sudah berjalan pada keranjang ini
 bool     g_kunciIsFlip = false, g_flipMode = false;
+bool     g_lastCloseProfit = false, g_pendingTarget = false;   // penutupan terakhir = target profit tercapai
+string   g_lastSignal = "";
 string   g_lastAction = "idle", g_pendingClose = "";
 string   g_log[5];
 bool     g_paused = false, g_isKunci = false, g_kunciUsed = false;
@@ -172,6 +185,20 @@ string T(const string id, const string en) { return(InpLanguage == LANG_ID ? id 
 double BasketBalance()
   {
    return(g_startBal > 0.0 ? g_startBal : AccountInfoDouble(ACCOUNT_BALANCE));
+  }
+
+// jarak flip berikutnya (% saldo sebelum posisi): awal, awal x pengali, awal x pengali^2, ...
+double FlipDistancePct()
+  {
+   if(!g_flipMode)
+      return(cfg.kunciPct);
+   return(cfg.kunciPct * MathPow(MathMax(1.0, InpFlipDistMultiplier), (double)g_flipCount));
+  }
+
+// jeda sebelum entry lagi: setelah target profit pakai InpReentryAfterTargetSec, selain itu ikut profil
+int ReentryDelay()
+  {
+   return(g_lastCloseProfit ? MathMax(0, InpReentryAfterTargetSec) : cfg.reentry);
   }
 
 //+------------------------------------------------------------------+
@@ -260,8 +287,23 @@ bool ValidateConfig()
       Print("Mesin Uang: PERINGATAN flip martingale butuh akun hedging, flip dimatikan.");
    if(g_flipMode && InpFlipLotMultiplier < 1.0)
       Print("Mesin Uang: PERINGATAN pengali lot flip < 1.0, ini bukan martingale.");
-   if(g_flipMode && cfg.kunciPct * (InpFlipMaxCount + 1) > cfg.lossPct)
-      Print("Mesin Uang: INFO flip ke-", InpFlipMaxCount + 1, " tidak akan sempat jalan, batas rugi keranjang lebih dulu tercapai.");
+   if(g_flipMode && InpFlipDistMultiplier < 1.0)
+      Print("Mesin Uang: PERINGATAN pengali jarak flip < 1.0, dipakai 1.0.");
+   if(g_flipMode)
+     {
+      double cum = 0.0;
+      for(int f = 0; f < InpFlipMaxCount; f++)
+        {
+         double d = cfg.kunciPct * MathPow(MathMax(1.0, InpFlipDistMultiplier), (double)f);
+         cum += d;
+         if(cum >= cfg.lossPct)
+           {
+            Print("Mesin Uang: INFO flip ke-", f + 1, " (jarak ", DoubleToString(d, 1), "%) tidak akan sempat jalan: total rugi ",
+                  DoubleToString(cum, 1), "% sudah mencapai batas rugi keranjang ", DoubleToString(cfg.lossPct, 1), "%.");
+            break;
+           }
+        }
+     }
    if(cfg.kcEnable && cfg.kcFlip && cfg.kcRatio <= 1.0)
       Print("Mesin Uang: PERINGATAN flip hampir tidak pernah aktif jika rasio kunci <= 1.0.");
    if(cfg.kcFlipBuf > cfg.kcRecover)
@@ -445,7 +487,7 @@ int OnInit()
    ApplyTheme();
    BuildPanel();
    EventSetMillisecondTimer(MathMax(100, InpUiRefreshMs));
-   AddLog("v2.20 " + T("mulai, profil ", "started, profile ") + g_profileName);
+   AddLog("v2.30 " + T("mulai, profil ", "started, profile ") + g_profileName);
    RefreshUI();
    return(INIT_SUCCEEDED);
   }
@@ -564,7 +606,7 @@ bool ClosePositions(const int mode)
   }
 
 //+------------------------------------------------------------------+
-bool CloseBasket(const string reason)
+bool CloseBasket(const string reason, const bool targetHit = false)
   {
    TakeSnapshot();
    double balance = BasketBalance();
@@ -578,6 +620,7 @@ bool CloseBasket(const string reason)
    if(!ClosePositions(0))
      {
       g_pendingClose = reason;
+      g_pendingTarget = targetHit;
       g_lastAction = T("gagal tutup, ulangi: ", "close failed, retrying: ") + reason;
       return(false);
      }
@@ -596,6 +639,8 @@ bool CloseBasket(const string reason)
      }
 
    g_lastCloseTime = TimeTradeServer();
+   g_lastCloseProfit = targetHit;
+   g_pendingTarget = false;
    g_basketStart = 0; g_targetLots = 0; g_sliceLots = 0;
    g_kunciTargetLots = 0; g_kunciSliceLots = 0;
    g_isKunci = false; g_kunciUsed = false; g_cycleRealized = 0; g_peakLots = 0; g_startBal = 0;
@@ -747,7 +792,7 @@ void ManageBasket()
 
    if(g_pendingClose != "")
      {
-      CloseBasket(g_pendingClose);
+      CloseBasket(g_pendingClose, g_pendingTarget);
       return;
      }
 
@@ -757,6 +802,7 @@ void ManageBasket()
         {
          AddLog(T("posisi hilang (SL/manual)", "positions gone (SL/manual)"));
          g_lastCloseTime = TimeTradeServer();
+         g_lastCloseProfit = false;
         }
       g_basketStart = 0; g_isKunci = false; g_kunciUsed = false;
       g_cycleRealized = 0; g_peakLots = 0; g_targetLots = 0; g_sliceLots = 0; g_startBal = 0;
@@ -795,7 +841,7 @@ void ManageBasket()
 
    if(profitPct >= cfg.profitPct)
      { CloseBasket(g_isKunci ? T("keranjang profit (setelah kunci)", "basket profit (after lock)")
-                             : T("keranjang profit", "basket profit")); return; }
+                             : T("keranjang profit", "basket profit"), true); return; }
    if(profitPct <= -cfg.lossPct)
      { CloseBasket(T("batas rugi", "loss limit")); return; }
    if(InpMaxBasketSeconds > 0 && elapsed >= InpMaxBasketSeconds)
@@ -806,7 +852,7 @@ void ManageBasket()
    if(cfg.kcEnable && !g_isKunci && snap.mainVol > 0.0
       && (g_flipMode || g_lastRelease == 0 || (TimeTradeServer() - g_lastRelease) >= cfg.kcCooldown))
      {
-      double trig = -cfg.kunciPct;
+      double trig = -FlipDistancePct();
       if(g_flipMode)
         {
          // ambang dihitung dari rugi sisi utama saat ini (rugi yang sudah terealisasi tidak dihitung lagi)
@@ -970,6 +1016,56 @@ bool OpenSlice(const ENUM_ORDER_TYPE type, const double lots, const bool kunci)
   }
 
 //+------------------------------------------------------------------+
+// Arah entry dari kotak (candle) tertutup di sebelah kiri candle yang sedang berjalan.
+//  CANDLE   : candle naik -> BUY, turun -> SELL
+//  BREAKOUT : close menembus high/low N bar sebelumnya -> ikut arah tembusan
+//  REVERSAL : candle penolakan (ekor panjang) -> arah berlawanan dengan ekor
+//  AUTO     : reversal > breakout > candle
+bool EntrySignal(ENUM_NYESER_DIR &dir, string &why)
+  {
+   int n    = MathMax(2, InpBreakoutBars);
+   int need = n + 3;
+   MqlRates r[];
+   ArraySetAsSeries(r, true);
+   if(CopyRates(_Symbol, InpSignalTF, 0, need, r) < need)
+      return(false);
+
+   ENUM_ENTRY_MODE m = InpEntryMode;
+   double range = r[1].high - r[1].low;   // r[1] = kotak kiri (candle tertutup terakhir)
+
+   if((m == ENTRY_REVERSAL || m == ENTRY_AUTO) && range > 0.0)
+     {
+      double ratio  = MathMax(0.51, MathMin(0.95, InpPinWickRatio));
+      double upWick = r[1].high - MathMax(r[1].open, r[1].close);
+      double dnWick = MathMin(r[1].open, r[1].close) - r[1].low;
+      if(dnWick / range >= ratio)
+        { dir = NYESER_BUY;  why = T("reversal: ekor bawah panjang", "reversal: long lower wick"); return(true); }
+      if(upWick / range >= ratio)
+        { dir = NYESER_SELL; why = T("reversal: ekor atas panjang", "reversal: long upper wick"); return(true); }
+     }
+
+   if(m == ENTRY_BREAKOUT || m == ENTRY_AUTO)
+     {
+      double hh = -DBL_MAX, ll = DBL_MAX;
+      for(int i = 2; i <= n + 1; i++)
+        { hh = MathMax(hh, r[i].high); ll = MathMin(ll, r[i].low); }
+      if(r[1].close > hh)
+        { dir = NYESER_BUY;  why = T("breakout naik", "breakout up"); return(true); }
+      if(r[1].close < ll)
+        { dir = NYESER_SELL; why = T("breakout turun", "breakout down"); return(true); }
+     }
+
+   if(m == ENTRY_CANDLE || m == ENTRY_AUTO)
+     {
+      if(r[1].close > r[1].open)
+        { dir = NYESER_BUY;  why = T("kotak kiri naik", "left candle up"); return(true); }
+      if(r[1].close < r[1].open)
+        { dir = NYESER_SELL; why = T("kotak kiri turun", "left candle down"); return(true); }
+     }
+   return(false);   // tidak ada sinyal (doji / belum ada breakout atau reversal)
+  }
+
+//+------------------------------------------------------------------+
 void MaybeOpenFullMargin()
   {
    if(g_isKunci || g_pendingClose != "")
@@ -992,7 +1088,7 @@ void MaybeOpenFullMargin()
    if(total == 0)
      {
       datetime now = TimeTradeServer();
-      if(g_lastCloseTime > 0 && cfg.reentry > 0 && (now - g_lastCloseTime) < cfg.reentry)
+      if(g_lastCloseTime > 0 && ReentryDelay() > 0 && (now - g_lastCloseTime) < ReentryDelay())
         { g_lastAction = T("tunggu jeda re-entry", "waiting re-entry delay"); return; }
       if(InpEntryAtSecond00 && ServerSeconds() != 0 && g_lastCloseTime == 0)
         { g_lastAction = T("tunggu detik 00", "waiting second 00"); return; }
@@ -1009,6 +1105,21 @@ void MaybeOpenFullMargin()
       if(!MarginLevelOK())
         { g_lastAction = T("margin level terlalu rendah", "margin level too low"); return; }
 
+      // arah entry mengikuti sinyal; FIXED = ikut input arah dan tombol
+      g_lastSignal = "";
+      if(InpEntryMode != ENTRY_FIXED)
+        {
+         ENUM_NYESER_DIR sigDir = g_currentDir;
+         string sigWhy = "";
+         if(EntrySignal(sigDir, sigWhy))
+           {
+            g_currentDir = sigDir;
+            type = (g_currentDir == NYESER_BUY) ? ORDER_TYPE_BUY : ORDER_TYPE_SELL;
+            g_lastSignal = sigWhy;
+           }
+         else if(InpEntryMode == ENTRY_BREAKOUT || InpEntryMode == ENTRY_REVERSAL)
+           { g_lastAction = T("menunggu sinyal breakout/reversal", "waiting for breakout/reversal signal"); return; }
+        }
       g_basketDir  = g_currentDir;
       g_targetLots = FullMarginLots(type, false);
       g_sliceLots  = MathMax(minLot, NormalizeVolume(g_targetLots / slices));
@@ -1018,7 +1129,11 @@ void MaybeOpenFullMargin()
       g_flipCount = 0; g_kunciIsFlip = false;
       g_startBal = AccountInfoDouble(ACCOUNT_BALANCE);   // saldo sebelum posisi dibuka
       if(OpenSlice(type, g_sliceLots, false))
+        {
          g_lastCloseTime = 0;
+         if(g_lastSignal != "")
+            AddLog(g_lastSignal + " -> " + (g_basketDir == NYESER_BUY ? "BUY" : "SELL"));
+        }
       return;
      }
 
@@ -1281,11 +1396,11 @@ void UpdateTargetLines()
 
          if(!g_isKunci && cfg.kcEnable && (!g_flipMode || g_flipCount < InpFlipMaxCount))
            {
-            double kcMoney = -balance * cfg.kunciPct / 100.0;
+            double kcMoney = -balance * FlipDistancePct() / 100.0;
             if(g_flipMode)
                kcMoney += g_cycleRealized;   // ambang flip dihitung dari rugi sisi utama saat ini
             double kcP = NormalizeDouble(PriceForTargetMoney(type, mark, profit, kcMoney, mpp), digits);
-            AddLevel("kc", kcP, pal.accent, STYLE_DOT, (g_flipMode ? "Flip " : T("kunci ", "lock ")) + DoubleToString(cfg.kunciPct, 1) + "%  " + DoubleToString(kcP, digits));
+            AddLevel("kc", kcP, pal.accent, STYLE_DOT, (g_flipMode ? "Flip " + IntegerToString(g_flipCount + 1) + " " : T("kunci ", "lock ")) + DoubleToString(FlipDistancePct(), 1) + "%  " + DoubleToString(kcP, digits));
            }
          if(g_isKunci && cfg.kcFlip)
            {
@@ -1542,7 +1657,7 @@ ENUM_EA_STATE GetState()
       return(ST_PAUSED);
    if(total == 0)
      {
-      if(g_lastCloseTime > 0 && cfg.reentry > 0 && (TimeTradeServer() - g_lastCloseTime) < cfg.reentry)
+      if(g_lastCloseTime > 0 && ReentryDelay() > 0 && (TimeTradeServer() - g_lastCloseTime) < ReentryDelay())
          return(ST_COOLDOWN);
       return(ST_IDLE);
      }
@@ -1590,13 +1705,13 @@ void UpdatePanel()
    ObjectSetInteger(g_chart, g_pfx + "badge", OBJPROP_BGCOLOR, sc);
    ObjectSetInteger(g_chart, g_pfx + "badge", OBJPROP_COLOR, sc);
    SetTxt("badgeT", sname, bt);
-   SetTxt("title", "Mesin Uang 2.20 [" + g_profileName + "]", clrWhite);
+   SetTxt("title", "Mesin Uang 2.30 [" + g_profileName + "]", clrWhite);
    ObjectSetString(g_chart, g_pfx + "btnMin", OBJPROP_TEXT, g_minimized ? "+" : "-");
 
    int basketSec = (g_basketStart > 0) ? (int)(TimeTradeServer() - g_basketStart) : 0;
    SetTxt("clock", StringFormat("%s  %s  spr %d  %s %ds%s", TimeToString(TimeTradeServer(), TIME_SECONDS), _Symbol,
           (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD), T("keranjang", "basket"), basketSec,
-          g_flipMode ? StringFormat("  flip %d/%d", g_flipCount, InpFlipMaxCount) : ""), pal.dim);
+          g_flipMode ? StringFormat("  flip %d/%d @%.0f%%", g_flipCount, InpFlipMaxCount, FlipDistancePct()) : ""), pal.dim);
 
    double tpRef = g_isKunci ? MathMin(cfg.profitPct, cfg.kcRecover) : cfg.profitPct;
    SetTxt("plTxt", StringFormat("P/L %+.2f%%  (TP %.2f | %s %.2f)  %s %+.2f", pct, tpRef,
@@ -1656,7 +1771,7 @@ void UpdatePanel()
    ObjectSetString(g_chart, g_pfx + "b_kunci", OBJPROP_TEXT, T("KUNCI MANUAL", "MANUAL LOCK"));
    ObjectSetString(g_chart, g_pfx + "b_lepas", OBJPROP_TEXT, T("LEPAS KUNCI", "RELEASE"));
    ObjectSetString(g_chart, g_pfx + "b_dir", OBJPROP_TEXT,
-                   T("ARAH: ", "DIR: ") + (g_currentDir == NYESER_BUY ? "BUY" : "SELL"));
+                   (InpEntryMode == ENTRY_FIXED ? T("ARAH: ", "DIR: ") : T("SINYAL: ", "SIGNAL: ")) + (g_currentDir == NYESER_BUY ? "BUY" : "SELL"));
    ObjectSetString(g_chart, g_pfx + "b_lines", OBJPROP_TEXT, T("GARIS: ", "LINES: ") + (g_showLines ? "ON" : "OFF"));
    ObjectSetInteger(g_chart, g_pfx + "b_pause", OBJPROP_BGCOLOR, g_paused ? pal.bad : pal.btn);
 

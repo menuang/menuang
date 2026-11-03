@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                   JaringEmas.mq5 |
+//|                                                   MesinUang.mq5  |
 //|  100% Full Auto Directional Crossing & Reverse Martingale        |
 //|  Auto-Calibrated TP/SL + Max Step 6 Safety Hedge Lock            |
 //|                                      https://cindo.pages.dev     |
@@ -7,7 +7,7 @@
 #property copyright   "Mochamad Tabrani & Antigravity AI"
 #property link        "https://cindo.pages.dev"
 #property version     "5.00"
-#property description "Minimalist High-Speed Algorithmic Bot: Zero-Level Crossing & Reverse Martingale"
+#property description "Mesin Uang: Minimalist High-Speed Algorithmic Bot, Zero-Level Crossing & Reverse Martingale"
 
 #include <Trade\Trade.mqh>
 
@@ -57,7 +57,7 @@ int OnInit()
    g_trade.SetDeviationInPoints(InpSlippage);
    g_trade.SetTypeFilling(GetOptimalFilling(_Symbol));
 
-   Print("=== ZeroLevelBot v5.00 Minimalis Aktif ===");
+   Print("=== Mesin Uang v5.00 Minimalis Aktif ===");
    UpdateChartComment();
    return(INIT_SUCCEEDED);
 }
@@ -65,7 +65,7 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    Comment("");
-   Print("=== ZeroLevelBot Dihentikan ===");
+   Print("=== Mesin Uang Dihentikan ===");
 }
 
 //+------------------------------------------------------------------+
@@ -247,14 +247,14 @@ void OpenZeroBotOrder(ENUM_POSITION_TYPE type, double lot)
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double tp  = NormalizeDouble(ask + dist, g_digits);
       double sl  = NormalizeDouble(ask - dist, g_digits);
-      g_trade.Buy(lot, _Symbol, ask, sl, tp, StringFormat("ZeroBot BUY Stp%d", g_currentStep));
+      g_trade.Buy(lot, _Symbol, ask, sl, tp, StringFormat("MesinUang BUY Stp%d", g_currentStep));
    }
    else
    {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double tp  = NormalizeDouble(bid - dist, g_digits);
       double sl  = NormalizeDouble(bid + dist, g_digits);
-      g_trade.Sell(lot, _Symbol, bid, sl, tp, StringFormat("ZeroBot SELL Stp%d", g_currentStep));
+      g_trade.Sell(lot, _Symbol, bid, sl, tp, StringFormat("MesinUang SELL Stp%d", g_currentStep));
    }
 }
 
@@ -335,7 +335,7 @@ void UpdateChartComment()
 
    Comment(StringFormat(
       "===========================================\n"
-      " 🛡️ ZERO-LEVEL REVERSE BOT v5.0 (MINIMALIS)\n"
+      " 🛡️ MESIN UANG v5.0 (MINIMALIS)\n"
       "===========================================\n"
       " Simbol   : %s\n"
       " Status   : %s\n"

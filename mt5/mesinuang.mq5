@@ -2,10 +2,10 @@
 //|                                                   MesinUang.mq5  |
 //|  100% Full Auto Directional Crossing & Reverse Martingale        |
 //|  Auto-Calibrated TP/SL + Max Step 6 Safety Hedge Lock            |
-//|                                      https://cindo.pages.dev     |
+//|                                       https://sagu.pages.dev     |
 //+------------------------------------------------------------------+
 #property copyright   "Mochamad Tabrani & Antigravity AI"
-#property link        "https://cindo.pages.dev"
+#property link        "https://sagu.pages.dev"
 #property version     "5.00"
 #property description "Mesin Uang: Minimalist High-Speed Algorithmic Bot, Zero-Level Crossing & Reverse Martingale"
 

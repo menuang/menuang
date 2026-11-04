@@ -3,7 +3,7 @@
 <img width="100%" src="https://capsule-render.vercel.app/api?type=waving&height=220&color=gradient&text=Menuang&fontSize=55&fontAlignY=35&desc=Air%20%E2%86%92%20Teko%20%E2%86%92%20Cangkir&descAlignY=58&animation=fadeIn" />
 
 <br/>
-<img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=22&duration=2800&pause=900&center=true&vCenter=true&width=780&lines=Trading+XAUUSD+manual+dibantu+EA;Modal+dan+akun+milik+sendiri;Disiplin+risiko+dulu%2C+profit+kemudian" />
+<img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=22&duration=2800&pause=900&center=true&vCenter=true&width=780&lines=Trading+XAUUSD+manual+dibantu+EA;Modal+dan+akun+milik+sendiri;Sumber+Daya+%20%E2%86%92%20+Wadah+%20%E2%86%92%20+Pembagian;Disiplin+risiko+dulu%2C+profit+kemudian" />
 
 [![GitHub](https://img.shields.io/badge/-menuang-181717?style=flat-square&logo=github)](https://github.com/menuang)
 [![MQL5](https://img.shields.io/badge/-ScalerPip_di_MQL5-0A66C2?style=flat-square)](https://www.mql5.com/en/users/getbos)

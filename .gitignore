@@ -1,0 +1,62 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# MetaTrader 4 / MetaTrader 5 Compiled & Cache Files
+*.ex4
+*.ex5
+*.mqproj
+*.dat
+*.hc
+*.tpl
+MQL5/Logs/
+MQL4/Logs/
+
+# Logs, Journals & Private Account Reports
+*.log
+logs/
+reports/
+statement*.htm
+statement*.html
+statement*.pdf
+account_*.csv
+account_*.json
+audit_private/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

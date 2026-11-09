@@ -1,0 +1,16 @@
+;+------------------------------------------------------------------+
+;| Parameter Standar 1 Unit Mesin Uang — Menuang_EA_XAUUSD          |
+;| Filosofi: Air (Sumber Daya) -> Teko (Aturan) -> Cangkir (Unit)   |
+;| Diuji terlebih dahulu di akun Demo / Cent sebelum akun Live      |
+;+------------------------------------------------------------------+
+InpUnitName=Unit-01
+InpMagicNumber=20260921
+InpManageManualTrades=true
+InpEnableAutoTPSL=true
+InpStopLossPoints=500||500||50||2000||N
+InpTakeProfitPoints=1000||1000||100||5000||N
+InpInitialModal=100.0||100.0||10.0||10000.0||N
+InpEarlyWarningLossPct=15.0||15.0||1.0||30.0||N
+InpMaxDailyLossPct=50.0||50.0||5.0||50.0||N
+InpMaxCumulativeDDPct=70.0||70.0||5.0||70.0||N
+InpAutoCloseOnHardLimit=true

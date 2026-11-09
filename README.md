@@ -7,6 +7,9 @@
 
 [![GitHub](https://img.shields.io/badge/-menuang-181717?style=flat-square&logo=github)](https://github.com/menuang)
 [![MQL5](https://img.shields.io/badge/-Menuang_di_MQL5-0A66C2?style=flat-square)](https://www.mql5.com/en/users/getbos)
+![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)
+![Status](https://img.shields.io/badge/status-active%20development-green?style=flat-square)
+![Market](https://img.shields.io/badge/market-XAUUSD%20%7C%20Forex%20%7C%20Crypto-orange?style=flat-square)
 
 </div>
 
@@ -64,6 +67,28 @@ Berkembang artinya **menambah unit**, bukan memperbesar lot atau leverage pada s
 
 <img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
 
+## 🏗️ Arsitektur Sistem & Repositori
+
+```text
+menuang/
+├── mql5/
+│   ├── Experts/            # Source code EA MT5 (Auto TP/SL & Risk Guard)
+│   ├── Include/            # Library manajemen risiko MQL5
+│   └── Presets/            # File .set parameter terstandarisasi
+├── config/                 # Konfigurasi sistem & parameter unit
+├── core/
+│   ├── engine.py           # Mesin pemantau & automasi
+│   ├── risk_manager.py     # Kalkulasi lot, drawdown guard, & circuit breaker
+│   └── portfolio.py        # Pelacakan kinerja unit & jurnal akun
+├── connectors/             # Integrasi MT5, API, & bridge TP/SL Android
+├── journal/                # Pencatatan log transaksi & audit performa
+├── notifications/          # Peringatan real-time (Telegram / Android)
+├── docs/                   # Buku Panduan Metode Tabranij & SOP Unit
+└── main.py                 # Entry point utilitas dan monitoring
+```
+
+<img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
+
 ## 📈 Pasar dan Platform
 
 - **Instrumen utama:** XAUUSD
@@ -76,9 +101,9 @@ Berkembang artinya **menambah unit**, bukan memperbesar lot atau leverage pada s
 
 | Lapisan | Aturan |
 |---|---|
-| Peringatan dini | Rugi harian mencapai **[ISI]%** → berhenti membuka posisi baru |
+| Peringatan dini | Rugi harian mencapai **15%** → berhenti membuka posisi baru |
 | **Batas harian mutlak** | Rugi harian **50%** → semua berhenti, lalu evaluasi |
-| Batas kumulatif | Drawdown **[ISI]%** → unit dimatikan dan dievaluasi |
+| Batas kumulatif | Drawdown **70%** → unit dimatikan dan dievaluasi |
 
 Prinsip tambahan:
 - Hanya uang yang siap hilang
@@ -91,9 +116,9 @@ Prinsip tambahan:
 
 | Fase | Fokus | Syarat naik |
 |---|---|---|
-| **1. Fondasi** | Satu unit, modal kecil, pencatatan lengkap | Modal tumbuh di atas **200%**, ditambah syarat konsistensi: **[ISI: periode minimum dan drawdown maksimum]** |
-| **2. Replikasi** | Menambah unit dan anggota | **[ISI]** |
-| **3. Produk** | Merapikan EA, alat, dan panduan untuk dibagikan | **[ISI]** |
+| **1. Fondasi** | Satu unit, modal kecil, pencatatan lengkap | Modal tumbuh di atas **200%**, ditambah syarat konsistensi: **periode minimum 3 bulan berjalan dan drawdown harian tidak pernah menyentuh batas mutlak (50%)** |
+| **2. Replikasi** | Menambah unit dan anggota | **SOP satu unit tervalidasi penuh, jurnal trading teraudit rapi, dan anggota lulus uji disiplin di akun demo/cent minimal 1 bulan** |
+| **3. Produk** | Merapikan EA, alat, dan panduan untuk dibagikan | **EA bebas bug kritis, jembatan TP/SL Android berjalan stabil, dan Buku Panduan Metode Tabranij selesai disusun** |
 
 <img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
 
@@ -105,12 +130,29 @@ Prinsip tambahan:
 
 <img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
 
-## 🛠️ Operasional
+## 🛠️ Operasional & Penggunaan Cepat
 
 - **Kode dan dokumentasi:** GitHub
 - **Pengembangan dengan bantuan:** AI
 - **Infrastruktur web:** Cloudflare
 - 🔐 **Keamanan:** API key, password, dan kredensial broker **tidak pernah** disimpan di repositori. Gunakan variabel lingkungan atau secrets, dan `.gitignore` sejak awal.
+
+```bash
+# Clone repositori
+git clone https://github.com/menuang/menuang.git
+cd menuang
+
+# Siapkan environment Python untuk monitoring & jurnal
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Salin konfigurasi environment
+cp .env.example .env
+
+# Jalankan monitoring unit Mesin Uang
+python main.py --mode monitor --pair XAUUSD
+```
 
 <img width="1080" height="4" alt="br-animated-line" src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" />
 

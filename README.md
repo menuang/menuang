@@ -164,9 +164,14 @@ Kami, <a href="https://www.mql5.com/en/users/getbos">**ScalerPip**</a>, trading 
 
 - 📊 2026: bersama tim, satu akun tumbuh dari sekitar $60 menjadi sekitar $1.400 dalam kurang lebih 3 bulan
 - 🔄 21 September 2026: memulai lagi dari saldo $5
-- 📱 Membuat TP/SL otomatis yang terintegrasi dengan Android
+- 📱 Membuat TP/SL otomatis yang terintegrasi dengan Android 
 - 📘 Menyusun buku panduan trading dengan metode Tabranij
 - 🌱 Ini masih permulaan. Langkah selanjutnya: membangun tim trading
+- +62 813-5757-0188 vy
+- +62 852-0539-9018 pf
+- +62 858-4754-7901 dy
+- +62 882-2251-9061 fd
+- +62 812-3445-556 pr
 
 > Angka di atas adalah catatan perjalanan akun kami sendiri. **Bukan jaminan, proyeksi, atau hasil yang bisa diharapkan siapa pun.**
 
